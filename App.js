@@ -1,12 +1,91 @@
-import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { useState } from 'react';
+import { StyleSheet, View, Platform, AsyncStorage } from 'react-native';
+import { Focus } from './src/features/focus/Focus';
+import { FocusHistory } from './src/features/focus/FocusHistory';
+import Timer from './src/features/timer/Timer';
+import { colors } from './src/utils/colors'
+import { spacing } from './src/utils/sizes';
+
+const STATUSES = {
+  COMPLETE: 1,
+  CANCELLED: 2,
+}
 
 export default function App() {
+
+  const [focusSubject, setFocusSubject] = useState(null);
+  const [focusHistory, setFocusHistory] = useState([])
+
+  const addFocusHistorySub = (subject, status) => {
+    setFocusHistory([...focusHistory, {
+      subject: subject,
+      status: status
+    }])
+  }
+
+  const onClear = () => {
+    setFocusHistory([])
+  }
+
+  const saveFocusHistory = async () => {
+    try {
+      await AsyncStorage.setItem("focusHistory", JSON.stringify(focusHistory))
+    } catch (e) {
+      alert(e)
+    }
+  }
+
+  const loadFocusHistory = async () => {
+    try {
+      const history = await AsyncStorage.getItem("focusHistory")
+
+      if (history && JSON.parse(history).length) {
+        setFocusHistory(JSON.parse(history))
+      }
+
+    } catch (e) {
+      alert(e)
+    }
+  }
+
+  useEffect(() => {
+    loadFocusHistory();
+  }, [])
+
+  useEffect(() => {
+    saveFocusHistory();
+  }, [focusHistory])
+
   return (
     <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
+      {focusSubject ?
+        (
+          <Timer
+            focusSubject={focusSubject}
+            onTimerEnd={() => {
+              addFocusHistorySub(focusSubject, STATUSES.COMPLETE)
+              setFocusSubject(null)
+            }}
+            clearSubject={() => {
+              addFocusHistorySub(focusSubject, STATUSES.CANCELLED)
+              setFocusSubject(null)
+            }}
+          />
+        )
+        :
+        (
+          <View style={{ flex: 1 }}>
+            <Focus
+              addSubject={setFocusSubject}
+            />
+            <FocusHistory
+              focusHistory={focusHistory}
+              onClear={onClear}
+            />
+          </View>
+        )}
+
     </View>
   );
 }
@@ -14,8 +93,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: Platform.OS === "ios" ? spacing.md : spacing.lg,
+    backgroundColor: colors.darkBlue,
   },
 });
